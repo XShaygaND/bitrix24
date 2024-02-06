@@ -19,16 +19,17 @@ class HandlerSerializer(serializers.Serializer):
         return value
     
 
-class ContactIDSerializer(serializers.Serializer):
-    """Serializer for handling contact id from bitrix24"""
+class DealFieldsSerializer(serializers.Serializer):
+    """Serializer for handling fields from bitrix24"""
 
     CONTACT_ID = serializers.IntegerField()
+    COMMENTS = serializers.CharField(max_length=599, allow_null=True, allow_blank=True)
 
 
-class OrderContactSerializer(serializers.Serializer):
+class DealSerializer(serializers.Serializer):
     """serializer for handling the order results from bitrix24"""
 
-    result = serializers.ListField(child=ContactIDSerializer())
+    result = DealFieldsSerializer()
 
 
 class PhoneSerializer(serializers.Serializer):
@@ -43,7 +44,6 @@ class ContactInfoSerializer(serializers.Serializer):
     NAME = serializers.CharField(max_length=99)
     SECOND_NAME = serializers.CharField(max_length=99, allow_null=True, allow_blank=True)
     LAST_NAME = serializers.CharField(max_length=99)
-    COMMENTS = serializers.CharField(max_length=599, allow_null=True)
     HAS_PHONE  = serializers.BooleanField()
     PHONE = serializers.ListField(child=PhoneSerializer())
 

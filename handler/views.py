@@ -1,11 +1,18 @@
+import os
 import requests
 
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .serializers import HandlerSerializer, OrderContactSerializer, ContactSerializer
+from dotenv import load_dotenv
+
+from sheets_handler.handler import send_to_sheets
+
+from .serializers import HandlerSerializer, DealSerializer, ContactSerializer
 from .models import Deal
+
+load_dotenv()
 
 
 class HandlerView(APIView):
@@ -21,17 +28,18 @@ class HandlerView(APIView):
 
         dealid = serializer.validated_data['order_id']
         response = requests.get(
-            'https://b24-5fc7z1.bitrix24.ru/rest/1/s6i97ofh6yo71kn4/crm.deal.contact.items.get.json', {'ID': dealid})
+            os.getenv('GET_DEAL_URL'), {'ID': dealid})
 
         if response.status_code == 200:
-            serializer = OrderContactSerializer(data=response.json())
+            serializer = DealSerializer(data=response.json())
             if not serializer.is_valid():
                 raise ValueError(
                     f"An error occured while verifying order data: {serializer.errors}")
 
-            contactid = serializer.validated_data['result'][0]['CONTACT_ID']
+            comment = serializer.validated_data['result']['COMMENTS']
+            contactid = serializer.validated_data['result']['CONTACT_ID']
             response = requests.get(
-                'https://b24-5fc7z1.bitrix24.ru/rest/1/bumi8etmuefxzikf/crm.contact.get.json', {'ID': contactid})
+                os.getenv('GET_CONTACT_URL'), {'ID': contactid})
 
             if response.status_code == 200:
                 serializer = ContactSerializer(data=response.json())
@@ -39,15 +47,19 @@ class HandlerView(APIView):
                     raise ValueError(
                         f"An error occured while verifying contact data: {serializer.errors}")
 
-                full_name = serializer.validated_data['result']['NAME'] + \
-                    serializer.validated_data['result']['SECOND_NAME'] + \
-                    serializer.validated_data['result']['LAST_NAME']
+                full_name = ' '.join((
+                    serializer.validated_data['result']['NAME'],
+                    serializer.validated_data['result']['SECOND_NAME'],
+                    serializer.validated_data['result']['LAST_NAME'],
+                ))
                 phone_number = serializer.validated_data['result']['PHONE'][0]['VALUE']
-                comment = serializer.validated_data['result']['COMMENTS']
 
-                Deal.objects.create(full_name=full_name,
+                deal = Deal.objects.create(full_name=full_name,
                                     phone_number=phone_number, comment=comment)
-                # TODO: Send to google sheets handler
+                sent, err = send_to_sheets(deal.full_name, deal.phone_number, deal.comment)
+
+                if not sent:
+                    raise ValueError(f'Error sending data to Google Sheets: {err}')
 
             else:
                 raise ValueError(str(response.status_code) +
