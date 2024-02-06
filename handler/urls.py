@@ -1,12 +1,8 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 
-from .views import DealViewset
+from .views import HandlerView
 
-
-router = DefaultRouter()
-router.register(r'handler', DealViewset, basename='handler')
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('handler/', HandlerView.as_view(), name='handler'),
 ]
